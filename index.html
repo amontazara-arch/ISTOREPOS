@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iStore POS & ERP System - Multi-Store</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;700;900&family=Tajawal:wght@400;500;700;900&display=swap');
+        body { font-family: 'Tajawal', sans-serif; background-color: #f3f4f6; }
+        .font-modern { font-family: 'Poppins', sans-serif; }
+        .app-view { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .app-view.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @media print {
+            body * { visibility: hidden; }
+            #printable-area, #printable-area * { visibility: visible; }
+            #printable-area { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden text-gray-800">
+
+    <!-- واجهة تسجيل الدخول، إنشاء حساب، واستعادة كلمة المرور -->
+    <div id="auth-screen" class="fixed inset-0 bg-gray-950 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
+            <div class="font-modern flex items-baseline justify-center tracking-tight mb-2" dir="ltr">
+                <span class="text-orange-500 text-5xl font-black">i</span>
+                <span class="text-gray-900 text-4xl font-bold uppercase tracking-wide">Store</span>
+            </div>
+            <p class="text-gray-500 text-sm mb-6">نظام إدارة المحلات والمبيعات - سحابة مركزية</p>
+            
+            <!-- 1. نموذج تسجيل الدخول -->
+            <div id="login-form-box" class="space-y-4 text-right">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">اسم المستخدم للمحل:</label>
+                    <input type="text" id="loginUsername" placeholder="مثال: store_basra" class="w-full border p-3 rounded-lg text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-orange-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">كلمة المرور:</label>
+                    <input type="password" id="loginPassword" placeholder="••••••••" class="w-full border p-3 rounded-lg text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-orange-500">
+                </div>
+                <div class="flex justify-between items-center text-xs">
+                    <button onclick="switchAuthBox('forgot')" class="text-red-600 font-bold hover:underline">نسيت كلمة المرور؟</button>
+                    <button onclick="switchAuthBox('register')" class="text-blue-600 font-bold hover:underline">إنشاء حساب محل جديد</button>
+                </div>
+                <button onclick="handleLogin()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-lg transition shadow-lg">
+                    تسجيل الدخول للمحل
+                </button>
+            </div>
+
+            <!-- 2. نموذج إنشاء حساب محل جديد -->
+            <div id="register-form-box" class="space-y-4 text-right hidden">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">اسم المستخدم للمحل الجديد:</label>
+                    <input type="text" id="regUsername" placeholder="مثال: ali_phone" class="w-full border p-3 rounded-lg text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-green-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">بريد Google (Gmail) المرتبط لاستعادة الكود:</label>
+                    <input type="email" id="regEmail" placeholder="your-email@gmail.com" class="w-full border p-3 rounded-lg text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-green-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">كلمة المرور:</label>
+                    <input type="password" id="regPassword" placeholder="••••••••" class="w-full border p-3 rounded-lg text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-green-500">
+                </div>
+                <div class="text-right">
+                    <button onclick="switchAuthBox('login')" class="text-gray-600 text-xs font-bold hover:underline">لديك حساب بالفعل؟ تسجيل الدخول</button>
+                </div>
+                <button onclick="handleRegister()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition shadow-lg">
+                    إنشاء حساب محل جديد
+                </button>
+            </div>
+
+            <!-- 3. نموذج استعادة كلمة المرور -->
+            <div id="forgot-form-box" class="space-y-4 text-right hidden">
+                <p class="text-xs text-gray-600 mb-2">أدخل اسم المستخدم وبريد Google المرتبط بالحساب لإرسال كود التحقق:</p>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">اسم المستخدم:</label>
+                    <input type="text" id="forgotUsername" placeholder="اسم المستخدم الخاص بك" class="w-full border p-3 rounded-lg text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-red-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">بريد Google (Gmail):</label>
+                    <input type="email" id="forgotEmail" placeholder="gmail@gmail.com" class="w-full border p-3 rounded-lg text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-red-500">
+                </div>
+                <div class="text-right">
+                    <button onclick="switchAuthBox('login')" class="text-gray-600 text-xs font-bold hover:underline">العودة لتسجيل الدخول</button>
+                </div>
+                <button onclick="requestResetCode()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg transition shadow-lg">
+                    إرسال كود التحقق إلى البريد
+                </button>
+            </div>
+
+            <!-- 4. نموذج إدخال الكود وكلمة المرور الجديدة -->
+            <div id="reset-form-box" class="space-y-4 text-right hidden">
+                <p class="text-xs text-green-600 font-bold mb-2">تم إرسال كود التحقق (من 6 أرقام) إلى بريدك الإلكتروني بنجاح!</p>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">كود التحقق:</label>
+                    <input type="text" id="resetCodeInput" placeholder="123456" class="w-full border p-3 rounded-lg text-sm bg-gray-50 outline-none text-center tracking-widest font-bold text-lg">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">كلمة المرور الجديدة:</label>
+                    <input type="password" id="newPasswordInput" placeholder="••••••••" class="w-full border p-3 rounded-lg text-sm bg-gray-50 outline-none">
+                </div>
+                <button onclick="confirmNewPassword()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition shadow-lg">
+                    تغيير كلمة المرور والدخول
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- القائمة الجانبية -->
+    <aside class="w-64 bg-gray-900 text-gray-300 flex flex-col shadow-2xl z-20 h-full transition-all duration-300" id="sidebar">
+        <div class="py-5 flex flex-col items-center justify-center bg-gray-950 border-b border-gray-800 shadow-sm">
+            <div class="font-modern flex items-baseline tracking-tight" dir="ltr">
+                <span class="text-orange-500 text-4xl font-black">i</span>
+                <span class="text-white text-3xl font-bold uppercase tracking-wide">Store</span>
+            </div>
+            <span id="current-user-badge" class="text-xs text-green-400 mt-1 font-bold"><i class="fa-solid fa-store"></i> محل: غير محدد</span>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto p-3 space-y-1 mt-1 pb-10">
+            <button onclick="switchView('dashboard-view')" class="w-full text-right px-4 py-2.5 hover:bg-gray-800 rounded-lg transition flex items-center text-white">
+                <i class="fa-solid fa-home pl-3 text-gray-400"></i> الرئيسية
+            </button>
+            <button onclick="switchView('pos-view')" class="w-full text-right px-4 py-2.5 hover:bg-gray-800 rounded-lg transition flex items-center text-gray-300">
+                <i class="fa-solid fa-cash-register pl-3 text-gray-400"></i> نقطة البيع POS
+            </button>
+            <button onclick="switchView('add-item-view')" class="w-full text-right px-4 py-2.5 hover:bg-gray-800 rounded-lg transition flex items-center text-gray-300">
+                <i class="fa-solid fa-cubes pl-3 text-gray-400"></i> إدارة المخزن
+            </button>
+            <button onclick="switchView('sales-view')" class="w-full text-right px-4 py-2.5 hover:bg-gray-800 rounded-lg transition flex items-center text-gray-300">
+                <i class="fa-solid fa-file-invoice pl-3 text-gray-400"></i> سجل المبيعات والراجع
+            </button>
+            <button onclick="switchView('customers-view')" class="w-full text-right px-4 py-2.5 hover:bg-gray-800 rounded-lg transition flex items-center text-gray-300">
+                <i class="fa-solid fa-address-book pl-3 text-gray-400"></i> كشف حساب الزبائن
+            </button>
+            <button onclick="switchView('my-debts-view')" class="w-full text-right px-4 py-2.5 hover:bg-gray-800 rounded-lg transition flex items-center text-gray-300">
+                <i class="fa-solid fa-file-invoice-dollar pl-3 text-red-400"></i> الديون التي علي
+            </button>
+            <button onclick="switchView('vouchers-view')" class="w-full text-right px-4 py-2.5 hover:bg-gray-800 rounded-lg transition flex items-center text-gray-300">
+                <i class="fa-solid fa-receipt pl-3 text-gray-400"></i> القبض والدفع والشعارات
+            </button>
+            <button onclick="switchView('expenses-view')" class="w-full text-right px-4 py-2.5 hover:bg-gray-800 rounded-lg transition flex items-center text-gray-300">
+                <i class="fa-solid fa-hand-holding-dollar pl-3 text-gray-400"></i> المصروفات
+            </button>
+            <button onclick="switchView('audit-view')" class="w-full text-right px-4 py-2.5 hover:bg-gray-800 rounded-lg transition flex items-center text-gray-300">
+                <i class="fa-solid fa-shield-halved pl-3 text-amber-400"></i> سجل الرقابة والحذف
+            </button>
+            <button onclick="syncWithCloud()" class="w-full text-right px-4 py-2.5 mt-2 bg-blue-700 hover:bg-blue-600 rounded-lg transition flex items-center text-white">
+                <i class="fa-solid fa-sync pl-3"></i> مزامنة وفحص السحابة
+            </button>
+            <button onclick="logoutApp()" class="w-full text-right px-4 py-2.5 mt-1 bg-red-800 hover:bg-red-700 rounded-lg transition flex items-center text-white font-bold">
+                <i class="fa-solid fa-right-from-bracket pl-3"></i> تسجيل الخروج
+            </button>
+        </div>
+    </aside>
+
+    <!-- المحتوى الرئيسي -->
+    <main class="flex-1 flex flex-col h-full relative bg-gray-100 overflow-y-auto">
+        <div class="p-4 md:p-8">
+            
+            <!-- مؤشر الحفظ -->
+            <div id="save-indicator" class="fixed top-4 left-4 z-40 text-xs font-bold hidden px-4 py-2 rounded-lg shadow-lg bg-blue-600 text-white transition-all">
+                <i class="fa-solid fa-circle-notch fa-spin pr-1"></i> <span id="indicator-text">جاري الحفظ...</span>
+            </div>
+
+            <!-- 1. لوحة التحكم -->
+            <div id="dashboard-view" class="app-view active max-w-5xl mx-auto">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <button onclick="switchView('sales-view')" class="flex flex-col items-center justify-center p-4 bg-[#c8102e] rounded shadow hover:shadow-lg transition text-white h-32">
+                        <i class="fa-solid fa-tag text-3xl mb-2"></i><span class="font-bold">سجل المبيعات والراجع</span>
+                    </button>
+                    <button onclick="switchView('pos-view')" class="flex flex-col items-center justify-center p-4 bg-[#9e005d] rounded shadow hover:shadow-lg transition text-white h-32">
+                        <i class="fa-solid fa-cash-register text-3xl mb-2"></i><span class="font-bold">نقطة بيع POS</span>
+                    </button>
+                    <button onclick="switchView('add-item-view')" class="flex flex-col items-center justify-center p-4 bg-[#00aeef] rounded shadow hover:shadow-lg transition text-white h-32">
+                        <i class="fa-solid fa-cubes text-3xl mb-2"></i><span class="font-bold">إدارة المخزن</span>
+                    </button>
+                    <button onclick="switchView('customers-view')" class="flex flex-col items-center justify-center p-4 bg-[#1d71b8] rounded shadow hover:shadow-lg transition text-white h-32">
+                        <i class="fa-solid fa-address-book text-3xl mb-2"></i><span class="font-bold">كشف حساب الزبائن</span>
+                    </button>
+                    <button onclick="switchView('my-debts-view')" class="flex flex-col items-center justify-center p-4 bg-red-700 rounded shadow hover:shadow-lg transition text-white h-32">
+                        <i class="fa-solid fa-file-invoice-dollar text-3xl mb-2"></i><span class="font-bold">الديون التي علي</span>
+                    </button>
+                    <button onclick="switchView('vouchers-view')" class="flex flex-col items-center justify-center p-4 bg-amber-600 rounded shadow hover:shadow-lg transition text-white h-32">
+                        <i class="fa-solid fa-receipt text-3xl mb-2"></i><span class="font-bold">القبض والدفع</span>
+                    </button>
+                    <button onclick="switchView('expenses-view')" class="flex flex-col items-center justify-center p-4 bg-[#8cc63f] rounded shadow hover:shadow-lg transition text-white h-32">
+                        <i class="fa-solid fa-hand-holding-dollar text-3xl mb-2"></i><span class="font-bold">المصروفات</span>
+                    </button>
+                    <button onclick="switchView('audit-view')" class="flex flex-col items-center justify-center p-4 bg-gray-800 rounded shadow hover:shadow-lg transition text-white h-32">
+                        <i class="fa-solid fa-shield-halved text-3xl mb-2 text-amber-400"></i><span class="font-bold">سجل الرقابة</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. المخزن -->
+            <div id="add-item-view" class="app-view max-w-5xl mx-auto">
+                <div class="bg-white rounded-lg shadow p-6 mb-6">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2">
+                        <h2 class="text-xl font-bold">إدارة المخزن وإضافة المواد</h2>
+                        <button onclick="switchView('dashboard-view')" class="bg-gray-100 px-3 py-1 rounded text-sm">عودة</button>
+                    </div>
+                    <form id="addItemForm" onsubmit="saveItem(event)" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <input type="text" id="itemName" required placeholder="اسم المادة" class="border p-3 rounded">
+                        <input type="number" id="itemQuantity" required placeholder="الكمية الافتتاحية" class="border p-3 rounded">
+                        <input type="number" id="itemBuyPrice" required placeholder="سعر الشراء" class="border p-3 rounded">
+                        <input type="number" id="itemPrice" required placeholder="سعر البيع" class="border p-3 rounded">
+                        <button type="submit" class="col-span-full bg-orange-500 text-white font-bold py-3 rounded">حفظ المادة في المخزن</button>
+                    </form>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="font-bold mb-4">المواد المتوفرة</h3>
+                    <table class="w-full text-right border-collapse">
+                        <thead><tr class="bg-gray-100"><th class="p-3 border">المادة</th><th class="p-3 border">الكمية</th><th class="p-3 border">سعر الشراء</th><th class="p-3 border">سعر البيع</th><th class="p-3 border text-center">إجراء</th></tr></thead>
+                        <tbody id="inventoryTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 3. نقطة البيع POS -->
+            <div id="pos-view" class="app-view">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">نقطة البيع السريعة POS</h2>
+                    <button onclick="switchView('dashboard-view')" class="bg-gray-200 px-4 py-2 rounded text-sm font-bold">عودة</button>
+                </div>
+                <div class="flex flex-col lg:flex-row gap-6">
+                    <div class="w-full lg:w-2/3 bg-white p-4 rounded shadow">
+                        <input type="text" id="searchPos" onkeyup="filterPOS()" placeholder="🔍 ابحث عن مادة في المخزن..." class="w-full border p-3 mb-4 rounded bg-gray-50 font-bold">
+                        <div id="pos-items-grid" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
+                    </div>
+                    <div class="w-full lg:w-1/3 bg-white p-4 rounded shadow flex flex-col">
+                        <h3 class="font-bold mb-4 bg-gray-900 text-white p-2 rounded text-center">الفاتورة الحالية</h3>
+                        <div class="space-y-2 bg-gray-50 p-2 rounded max-h-60 overflow-y-auto" id="invoice-items">
+                            <div class="text-center text-gray-400 py-6" id="empty-invoice-msg">الفاتورة فارغة</div>
+                        </div>
+                        <div class="border-t pt-4 mt-4 space-y-3">
+                            <div class="flex justify-between text-xl font-bold"><span>المجموع:</span><span id="total-price" class="text-fuchsia-600">0 د.ع</span></div>
+                            <div>
+                                <label class="block text-sm font-bold mb-1">نوع البيع:</label>
+                                <select id="saleType" onchange="toggleCustomerInput()" class="w-full border p-2 rounded bg-white">
+                                    <option value="cash">بيع نقدي (مع خيار الطباعة)</option>
+                                    <option value="debt">بيع آجل (على الدين)</option>
+                                </select>
+                            </div>
+                            <div id="customerInputDiv" class="hidden">
+                                <label class="block text-sm font-bold mb-1">اسم الزبون (الدائن):</label>
+                                <input type="text" id="posCustomerName" placeholder="أدخل اسم الزبون..." class="w-full border p-2 rounded">
+                            </div>
+                            <button onclick="checkout()" class="w-full bg-fuchsia-600 text-white py-3 rounded font-bold hover:bg-fuchsia-700">إتمام البيع</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. سجل المبيعات -->
+            <div id="sales-view" class="app-view max-w-6xl mx-auto">
+                <div class="bg-white rounded-lg shadow p-6 mb-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                        <div class="bg-blue-50 p-4 rounded border"><h4 class="text-sm font-bold text-gray-600">إجمالي المبيعات</h4><p class="text-2xl font-black text-blue-700" id="totalSalesDisplay">0 د.ع</p></div>
+                        <div class="bg-green-50 p-4 rounded border"><h4 class="text-sm font-bold text-gray-600">إجمالي الأرباح الإجمالية</h4><p class="text-2xl font-black text-green-700" id="grossProfitDisplay">0 د.ع</p></div>
+                        <div class="bg-fuchsia-50 p-4 rounded border"><h4 class="text-sm font-bold text-gray-600">صافي الربح (بعد المصروفات)</h4><p class="text-2xl font-black text-fuchsia-700" id="netProfitDisplay">0 د.ع</p></div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2">
+                        <h2 class="text-xl font-bold">سجل فواتير المبيعات والمرتجعات</h2>
+                        <button onclick="switchView('dashboard-view')" class="bg-gray-100 px-3 py-1 rounded text-sm">عودة</button>
+                    </div>
+                    <table class="w-full text-right border-collapse">
+                        <thead><tr class="bg-gray-100"><th class="p-3 border">رقم الفاتورة</th><th class="p-3 border">النوع</th><th class="p-3 border">الزبون</th><th class="p-3 border">المواد</th><th class="p-3 border">الإجمالي</th><th class="p-3 border">الربح</th><th class="p-3 border text-center">إجراء</th></tr></thead>
+                        <tbody id="salesTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 5. كشف حساب الزبائن -->
+            <div id="customers-view" class="app-view max-w-5xl mx-auto">
+                <div class="bg-white rounded-lg shadow p-6 mb-6">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2"><h2 class="text-xl font-bold">كشف حساب الزبائن والديون</h2><button onclick="switchView('dashboard-view')" class="bg-gray-100 px-3 py-1 rounded text-sm">عودة</button></div>
+                    <div class="bg-blue-50 p-4 rounded border mb-6 flex flex-col md:flex-row gap-3 items-center">
+                        <input type="text" id="newCustAccountName" placeholder="اسم الزبون..." class="border p-2 rounded flex-1 bg-white text-sm w-full">
+                        <input type="number" id="newCustAccountDebt" placeholder="مبلغ الدين السابق..." class="border p-2 rounded w-full md:w-48 bg-white text-sm">
+                        <button onclick="addNewCustomerAccount()" class="bg-blue-600 text-white px-5 py-2 rounded font-bold text-sm">إضافة حساب</button>
+                    </div>
+                    <input type="text" id="searchCustomerInput" onkeyup="filterCustomersList()" placeholder="🔍 ابحث عن اسم الزبون..." class="w-full border p-3 rounded bg-gray-50 font-bold mb-4">
+                    <table class="w-full text-right border-collapse">
+                        <thead><tr class="bg-gray-100"><th class="p-3 border">اسم الزبون</th><th class="p-3 border">إجمالي الدين الحالي</th><th class="p-3 border text-center">الإجراء</th></tr></thead>
+                        <tbody id="customersTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- تفاصيل الزبون -->
+            <div id="customer-detail-view" class="app-view max-w-4xl mx-auto">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex justify-between items-center mb-6 border-b pb-4">
+                        <div><h2 class="text-xl font-bold text-blue-700" id="detailCustomerName">اسم الزبون</h2><p class="text-sm text-gray-500">سجل الديون والإعفاءات</p></div>
+                        <button onclick="switchView('customers-view')" class="bg-gray-100 px-3 py-1 rounded text-sm">عودة للزبائن</button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div class="bg-gray-50 p-4 rounded border"><h3 class="font-bold mb-2 text-sm text-gray-600">تغيير الاسم</h3><div class="flex gap-2"><input type="text" id="newCustomerNameInput" class="border p-2 rounded flex-1 text-sm"><button onclick="updateCustomerName()" class="bg-blue-600 text-white px-3 py-2 rounded text-xs font-bold">تحديث</button></div></div>
+                        <div class="bg-gray-50 p-4 rounded border"><h3 class="font-bold mb-2 text-sm text-gray-600">تسجيل تسديد (قبض)</h3><div class="flex gap-2"><input type="number" id="quickPayAmount" placeholder="المبلغ..." class="border p-2 rounded flex-1 text-sm"><button onclick="quickPayDebt()" class="bg-green-600 text-white px-3 py-2 rounded text-xs font-bold">قبض</button></div></div>
+                        <div class="bg-amber-50 p-4 rounded border border-amber-200"><h3 class="font-bold mb-2 text-sm text-amber-800">إعفاء الزبون</h3><div class="flex gap-2"><input type="number" id="exemptionAmount" placeholder="الخصم..." class="border p-2 rounded flex-1 text-sm bg-white"><button onclick="exemptCustomerDebt()" class="bg-amber-600 text-white px-3 py-2 rounded text-xs font-bold">إعفاء</button></div></div>
+                    </div>
+                    <table class="w-full text-right border-collapse">
+                        <thead><tr class="bg-gray-100"><th class="p-3 border">البيان</th><th class="p-3 border">المبلغ</th><th class="p-3 border">التاريخ</th></tr></thead>
+                        <tbody id="customerInvoicesBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 6. الديون التي علي -->
+            <div id="my-debts-view" class="app-view max-w-5xl mx-auto">
+                <div class="bg-white rounded-lg shadow p-6 mb-6">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2"><h2 class="text-xl font-bold text-red-700">الديون التي علي (للمجهزين)</h2><button onclick="switchView('dashboard-view')" class="bg-gray-100 px-3 py-1 rounded text-sm">عودة</button></div>
+                    <div class="bg-red-50 border border-red-200 rounded p-4 mb-6"><p class="text-sm text-red-800 font-bold">إجمالي الديون</p><h3 class="text-3xl font-black text-red-700 mt-1" id="totalMyDebtsDisplay">0 د.ع</h3></div>
+                    <form id="addMyDebtForm" onsubmit="saveMyDebt(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <input type="text" id="myDebtSupplier" required placeholder="اسم المجهّز..." class="border p-2 rounded bg-white">
+                        <input type="number" id="myDebtAmount" required placeholder="المبلغ..." class="border p-2 rounded bg-white">
+                        <button type="submit" class="bg-red-600 text-white font-bold py-2 rounded">تسجيل دين</button>
+                    </form>
+                    <table class="w-full text-right border-collapse">
+                        <thead><tr class="bg-gray-100"><th class="p-3 border">المجهّز</th><th class="p-3 border">المبلغ</th><th class="p-3 border">التاريخ</th><th class="p-3 border text-center">إجراء</th></tr></thead>
+                        <tbody id="myDebtsTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 7. السندات -->
+            <div id="vouchers-view" class="app-view max-w-4xl mx-auto">
+                <div class="bg-white rounded-lg shadow p-6 mb-6">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2"><h2 class="text-xl font-bold">سندات القبض والدفع والشعار</h2><button onclick="switchView('dashboard-view')" class="bg-gray-100 px-3 py-1 rounded text-sm">عودة</button></div>
+                    <div class="mb-6 bg-gray-50 p-4 rounded border"><label class="block font-bold text-sm mb-1">رابط الشعار (Logo URL):</label><input type="text" id="logoUrlInput" placeholder="رابط الصورة..." class="w-full border p-2 rounded bg-white text-sm"></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-green-50 p-4 rounded border border-green-200 flex flex-col justify-between">
+                            <div><h3 class="font-bold text-green-800 mb-3">وصل قبض</h3><input type="text" id="vouchCust" placeholder="اسم الزبون..." class="w-full border p-2 rounded mb-2 bg-white text-sm"><input type="number" id="vouchPayAmount" placeholder="المبلغ..." class="w-full border p-2 rounded mb-2 bg-white text-sm"><textarea id="vouchPayText" class="w-full border p-2 rounded mb-2 bg-white text-sm" rows="2">استلمنا من السيد المبلغ المثبت أدناه.</textarea></div>
+                            <button onclick="issueVoucher('قبض')" class="w-full bg-green-600 text-white py-2 rounded font-bold text-sm mt-3">طباعة وصل القبض</button>
+                        </div>
+                        <div class="bg-amber-50 p-4 rounded border border-amber-200 flex flex-col justify-between">
+                            <div><h3 class="font-bold text-amber-800 mb-3">وصل دفع</h3><input type="text" id="vouchSupp" placeholder="اسم الجهة..." class="w-full border p-2 rounded mb-2 bg-white text-sm"><input type="number" id="vouchRecAmount" placeholder="المبلغ..." class="w-full border p-2 rounded mb-2 bg-white text-sm"><textarea id="vouchRecText" class="w-full border p-2 rounded mb-2 bg-white text-sm" rows="2">دفعنا بموجبه إلى السيد.</textarea></div>
+                            <button onclick="issueVoucher('دفع')" class="w-full bg-amber-600 text-white py-2 rounded font-bold text-sm mt-3">طباعة وصل الدفع</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 8. المصروفات -->
+            <div id="expenses-view" class="app-view max-w-5xl mx-auto">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2"><h2 class="text-xl font-bold">المصروفات</h2><button onclick="switchView('dashboard-view')" class="bg-gray-100 px-3 py-1 rounded text-sm">عودة</button></div>
+                    <form id="addExpenseForm" onsubmit="saveExpense(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <input type="text" id="expDesc" required placeholder="الوصف" class="border p-2 rounded">
+                        <input type="number" id="expAmount" required placeholder="المبلغ" class="border p-2 rounded">
+                        <button type="submit" class="bg-[#8cc63f] text-white font-bold py-2 rounded">إضافة مصروف</button>
+                    </form>
+                    <table class="w-full text-right border-collapse">
+                        <thead><tr class="bg-gray-100"><th class="p-3 border">الوصف</th><th class="p-3 border">المبلغ</th><th class="p-3 border">التاريخ</th></tr></thead>
+                        <tbody id="expensesTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 9. سجل الرقابة -->
+            <div id="audit-view" class="app-view max-w-5xl mx-auto">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2"><h2 class="text-xl font-bold text-red-600">سجل الرقابة</h2><button onclick="switchView('dashboard-view')" class="bg-gray-100 px-3 py-1 rounded text-sm">عودة</button></div>
+                    <table class="w-full text-right border-collapse">
+                        <thead><tr class="bg-gray-100"><th class="p-3 border">النوع</th><th class="p-3 border">التفاصيل</th><th class="p-3 border">الوقت</th></tr></thead>
+                        <tbody id="auditTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- منطقة الطباعة -->
+    <div id="printable-area" class="hidden p-8 bg-white font-sans text-black"></div>
+
+    <script>
+        // رابط السحابة المركزي المدمج الخاص بك
+        const MASTER_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbymoU1aupzGe0xYzU1cEbbmZYvvneN0SnB9r3nxzpMyd8fGBmfTo05byAcfdpR8DcA_Ww/exec";
+        
+        let currentStoreUser = localStorage.getItem('iStoreCurrentStore') || null;
+        let inventory = [], salesHistory = [], expensesList = [], debtsList = [], myDebtsList = [], auditLog = [], invoiceTotal = 0, currentActiveCustomer = null, customLogoUrl = "";
+        let pendingResetUser = "";
+
+        function showIndicator(text, isError = false) {
+            const indicator = document.getElementById('save-indicator');
+            const spanText = document.getElementById('indicator-text');
+            spanText.innerText = text;
+            indicator.className = `fixed top-4 left-4 z-40 text-xs font-bold px-4 py-2 rounded-lg shadow-lg text-white transition-all ${isError ? 'bg-red-600' : 'bg-blue-600'}`;
+            indicator.classList.remove('hidden');
+        }
+
+        function hideIndicator(successText) {
+            const indicator = document.getElementById('save-indicator');
+            const spanText = document.getElementById('indicator-text');
+            spanText.innerText = successText;
+            indicator.className = "fixed top-4 left-4 z-40 text-xs font-bold px-4 py-2 rounded-lg shadow-lg bg-green-600 text-white transition-all";
+            setTimeout(() => { indicator.classList.add('hidden'); }, 3000);
+        }
+
+        function switchAuthBox(mode) {
+            document.getElementById('login-form-box').classList.add('hidden');
+            document.getElementById('register-form-box').classList.add('hidden');
+            document.getElementById('forgot-form-box').classList.add('hidden');
+            document.getElementById('reset-form-box').classList.add('hidden');
+
+            if(mode === 'login') document.getElementById('login-form-box').classList.remove('hidden');
+            if(mode === 'register') document.getElementById('register-form-box').classList.remove('hidden');
+            if(mode === 'forgot') document.getElementById('forgot-form-box').classList.remove('hidden');
+            if(mode === 'reset') document.getElementById('reset-form-box').classList.remove('hidden');
+        }
+
+        function handleLogin() {
+            let u = document.getElementById('loginUsername').value.trim().toLowerCase();
+            let p = document.getElementById('loginPassword').value.trim();
+            if(!u || !p) return alert("يرجى إدخال اسم المستخدم وكلمة المرور!");
+
+            showIndicator("جاري تسجيل الدخول...");
+            fetch(`${MASTER_WEB_APP_URL}?action=login&user=${encodeURIComponent(u)}&pass=${encodeURIComponent(p)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if(data.success) {
+                        currentStoreUser = u;
+                        localStorage.setItem('iStoreCurrentStore', u);
+                        document.getElementById('auth-screen').classList.add('hidden');
+                        document.getElementById('current-user-badge').innerHTML = `<i class="fa-solid fa-store"></i> محل: ${u}`;
+                        loadDataFromServerData(data.storeData);
+                        hideIndicator("تم تسجيل الدخول بنجاح ✓");
+                    } else {
+                        alert(data.message || "بيانات الدخول غير صحيحة!");
+                        hideIndicator("فشل الدخول", true);
+                    }
+                })
+                .catch(err => {
+                    currentStoreUser = u;
+                    localStorage.setItem('iStoreCurrentStore', u);
+                    document.getElementById('auth-screen').classList.add('hidden');
+                    document.getElementById('current-user-badge').innerHTML = `<i class="fa-solid fa-store"></i> محل: ${u}`;
+                    loadDataFromLocal(u);
+                    hideIndicator("تم الدخول محلياً", true);
+                });
+        }
+
+        function handleRegister() {
+            let u = document.getElementById('regUsername').value.trim().toLowerCase();
+            let email = document.getElementById('regEmail').value.trim();
+            let p = document.getElementById('regPassword').value.trim();
+            if(!u || !email || !p) return alert("يرجى ملء جميع الحقول بما فيها بريد Google!");
+
+            showIndicator("جاري إنشاء حساب المحل...");
+            fetch(MASTER_WEB_APP_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify({ action: "register", user: u, email: email, pass: p })
+            }).then(() => {
+                currentStoreUser = u;
+                localStorage.setItem('iStoreCurrentStore', u);
+                document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('current-user-badge').innerHTML = `<i class="fa-solid fa-store"></i> محل: ${u}`;
+                inventory = []; salesHistory = []; expensesList = []; debtsList = []; myDebtsList = []; auditLog = [];
+                refreshAllUI();
+                hideIndicator("تم إنشاء المحل بنجاح ✓");
+            }).catch(err => {
+                alert("حدث خطأ، يرجى المحاولة لاحقاً.");
+            });
+        }
+
+        function requestResetCode() {
+            let u = document.getElementById('forgotUsername').value.trim().toLowerCase();
+            let email = document.getElementById('forgotEmail').value.trim();
+            if(!u || !email) return alert("أدخل اسم المستخدم والبريد الإلكتروني!");
+
+            showIndicator("جاري إرسال كود التحقق إلى بريدك...");
+            fetch(`${MASTER_WEB_APP_URL}?action=forgot&user=${encodeURIComponent(u)}&email=${encodeURIComponent(email)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if(data.success) {
+                        pendingResetUser = u;
+                        switchAuthBox('reset');
+                        hideIndicator("تم إرسال الكود بنجاح ✓");
+                    } else {
+                        alert(data.message || "اسم المستخدم أو البريد غير مطابقة!");
+                        hideIndicator("فشل الإرسال", true);
+                    }
+                })
+                .catch(err => {
+                    alert("تعذر الاتصال بالسيرفر حالياً.");
+                });
+        }
+
+        function confirmNewPassword() {
+            let code = document.getElementById('resetCodeInput').value.trim();
+            let newPass = document.getElementById('newPasswordInput').value.trim();
+            if(!code || !newPass) return alert("يرجى إدخال كود التحقق وكلمة المرور الجديدة!");
+
+            showIndicator("جاري تحديث كلمة المرور...");
+            fetch(MASTER_WEB_APP_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify({ action: "reset_confirm", user: pendingResetUser, code: code, newPass: newPass })
+            }).then(() => {
+                alert("تم تغيير كلمة المرور بنجاح! يمكنك الآن تسجيل الدخول.");
+                switchAuthBox('login');
+                hideIndicator("تم التحديث ✓");
+            }).catch(err => {
+                alert("حدث خطأ أثناء تغيير كلمة المرور.");
+            });
+        }
+
+        function logoutApp() {
+            if(confirm("هل تريد تسجيل الخروج؟")) {
+                currentStoreUser = null;
+                localStorage.removeItem('iStoreCurrentStore');
+                document.getElementById('auth-screen').classList.remove('hidden');
+                switchAuthBox('login');
+            }
+        }
+
+        function loadDataFromServerData(storeData) {
+            if(storeData) {
+                inventory = storeData.inventory || [];
+                salesHistory = storeData.salesHistory || [];
+                expensesList = storeData.expensesList || [];
+                debtsList = storeData.debtsList || [];
+                myDebtsList = storeData.myDebtsList || [];
+                auditLog = storeData.auditLog || [];
+                customLogoUrl = storeData.customLogoUrl || "";
+                document.getElementById('logoUrlInput').value = customLogoUrl;
+                localStorage.setItem(`iStoreData_${currentStoreUser}`, JSON.stringify(storeData));
+            }
+            refreshAllUI();
+        }
+
+        function saveDataToCloud() {
+            if(!currentStoreUser) return;
+            const appData = { inventory, salesHistory, expensesList, debtsList, myDebtsList, auditLog, customLogoUrl };
+            localStorage.setItem(`iStoreData_${currentStoreUser}`, JSON.stringify(appData));
+            showIndicator("جاري الحفظ والمزامنة...");
+            fetch(MASTER_WEB_APP_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify({ action: "save", user: currentStoreUser, data: appData })
+            }).then(() => { hideIndicator("تم الحفظ ✓"); });
+        }
+
+        function syncWithCloud() {
+            if(!currentStoreUser) return;
+            fetch(`${MASTER_WEB_APP_URL}?action=get&user=${encodeURIComponent(currentStoreUser)}`)
+                .then(res => res.json())
+                .then(data => { if(data && data.success) loadDataFromServerData(data.storeData); });
+        }
+
+        function loadDataFromLocal(user) {
+            const dataStr = localStorage.getItem(`iStoreData_${user}`);
+            if(dataStr) {
+                try {
+                    const appData = JSON.parse(dataStr);
+                    inventory = appData.inventory || [];
+                    salesHistory = appData.salesHistory || [];
+                    expensesList = appData.expensesList || [];
+                    debtsList = appData.debtsList || [];
+                    myDebtsList = appData.myDebtsList || [];
+                    auditLog = appData.auditLog || [];
+                    customLogoUrl = appData.customLogoUrl || "";
+                    document.getElementById('logoUrlInput').value = customLogoUrl;
+                } catch(e) {}
+            }
+            refreshAllUI();
+        }
+
+        function refreshAllUI() {
+            updateInventoryTable(); updatePOSGrid(); updateSalesTable();
+            updateExpensesTable(); updateCustomersTable(); updateMyDebtsTable(); updateAuditTable();
+        }
+
+        window.onload = function() {
+            if(currentStoreUser) {
+                document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('current-user-badge').innerHTML = `<i class="fa-solid fa-store"></i> محل: ${currentStoreUser}`;
+                loadDataFromLocal(currentStoreUser);
+                syncWithCloud();
+            } else {
+                document.getElementById('auth-screen').classList.remove('hidden');
+            }
+        };
+
+        function switchView(viewId) {
+            document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+        }
+
+        function saveItem(event) {
+            event.preventDefault();
+            inventory.push({ name: document.getElementById('itemName').value, quantity: Number(document.getElementById('itemQuantity').value), buyPrice: Number(document.getElementById('itemBuyPrice').value), price: Number(document.getElementById('itemPrice').value) });
+            document.getElementById('addItemForm').reset(); saveDataToCloud(); refreshAllUI();
+        }
+
+        function deleteItem(index) {
+            if(confirm('حذف المادة؟')) {
+                let deleted = inventory.splice(index, 1)[0];
+                auditLog.unshift({ type: 'حذف مادة', details: `حذف: ${deleted.name}`, date: new Date().toLocaleString('ar-IQ') });
+                saveDataToCloud(); refreshAllUI();
+            }
+        }
+
+        function updateInventoryTable() {
+            const tbody = document.getElementById('inventoryTableBody');
+            tbody.innerHTML = inventory.length === 0 ? '<tr><td colspan="5" class="p-4 text-center text-gray-400">لا توجد مواد</td></tr>' : '';
+            inventory.forEach((item, index) => {
+                tbody.innerHTML += `<tr class="border-b bg-white"><td class="p-3 border font-bold">${item.name}</td><td class="p-3 border text-green-600 font-bold">${item.quantity}</td><td class="p-3 border text-gray-600">${(item.buyPrice||0).toLocaleString()} د.ع</td><td class="p-3 border text-orange-600 font-bold">${(item.price||0).toLocaleString()} د.ع</td><td class="p-3 border text-center"><button onclick="deleteItem(${index})" class="bg-red-50 text-red-600 px-2 py-1 rounded text-sm font-bold">حذف</button></td></tr>`;
+            });
+        }
+
+        function updatePOSGrid() {
+            const posGrid = document.getElementById('pos-items-grid');
+            posGrid.innerHTML = inventory.length === 0 ? '<div class="col-span-full text-center text-gray-400 py-10">المخزن فارغ</div>' : '';
+            inventory.forEach((item) => {
+                posGrid.innerHTML += `<div onclick="addItemToInvoice('${item.name}', ${item.price}, ${item.buyPrice || 0})" class="border rounded-xl p-4 cursor-pointer hover:border-fuchsia-500 transition text-center bg-white item-card"><h3 class="font-bold item-title">${item.name}</h3><p class="text-sm text-gray-500 mt-2 font-black bg-gray-100 py-1 rounded">${Number(item.price).toLocaleString()} د.ع</p></div>`;
+            });
+        }
+
+        function filterPOS() {
+            let input = document.getElementById('searchPos').value.toLowerCase();
+            let items = document.getElementsByClassName('item-card');
+            for (let i = 0; i < items.length; i++) {
+                let title = items[i].getElementsByClassName('item-title')[0].innerText.toLowerCase();
+                items[i].style.display = title.includes(input) ? "" : "none";
+            }
+        }
+
+        let currentInvoiceItems = [];
+        function addItemToInvoice(itemName, defaultPrice, buyPrice) {
+            let customPriceStr = prompt(`سعر البيع لـ: ${itemName}`, defaultPrice);
+            if (customPriceStr === null) return;
+            let finalPrice = Number(customPriceStr);
+            if (isNaN(finalPrice)) return;
+            currentInvoiceItems.push({ name: itemName, price: finalPrice, buyPrice: buyPrice });
+            invoiceTotal += finalPrice; renderInvoice();
+        }
+
+        function renderInvoice() {
+            const container = document.getElementById('invoice-items');
+            container.innerHTML = currentInvoiceItems.length === 0 ? '<div class="text-center text-gray-400 py-6" id="empty-invoice-msg">الفاتورة فارغة</div>' : '';
+            currentInvoiceItems.forEach((item, idx) => {
+                container.innerHTML += `<div class="flex justify-between items-center bg-white p-2 rounded border"><span class="font-bold text-sm">${item.name}</span><div class="flex items-center gap-2"><span class="text-fuchsia-600 font-bold">${item.price.toLocaleString()}</span><button onclick="removeInvoiceItem(${idx})" class="text-red-500 text-xs"><i class="fa-solid fa-xmark"></i></button></div></div>`;
+            });
+            document.getElementById('total-price').innerText = invoiceTotal.toLocaleString() + ' د.ع';
+        }
+
+        function removeInvoiceItem(idx) {
+            invoiceTotal -= currentInvoiceItems[idx].price;
+            currentInvoiceItems.splice(idx, 1); renderInvoice();
+        }
+
+        function toggleCustomerInput() {
+            let type = document.getElementById('saleType').value;
+            document.getElementById('customerInputDiv').style.display = type === 'debt' ? 'block' : 'none';
+        }
+
+        function checkout() {
+            if(invoiceTotal === 0) return alert("الفاتورة فارغة!");
+            let saleType = document.getElementById('saleType').value;
+            let customerName = document.getElementById('posCustomerName').value.trim();
+            if(saleType === 'debt' && !customerName) return alert("أدخل اسم الزبون!");
+            let totalBuyCost = currentInvoiceItems.reduce((sum, i) => sum + (i.buyPrice || 0), 0);
+            let invoiceProfit = invoiceTotal - totalBuyCost;
+            let itemsNamesStr = currentInvoiceItems.map(i => `${i.name}`).join(', ');
+
+            let saleRecord = { id: Math.floor(Math.random() * 1000000), type: saleType === 'cash' ? 'نقدي' : 'آجل', customer: saleType === 'debt' ? customerName : 'زبون نقدي', date: new Date().toLocaleString('ar-IQ'), total: invoiceTotal, profit: invoiceProfit, items: [...currentInvoiceItems], returned: false };
+            salesHistory.push(saleRecord);
+
+            if(saleType === 'debt') {
+                debtsList.push({ id: saleRecord.id, customer: customerName, amount: invoiceTotal, date: new Date().toLocaleDateString('ar-IQ'), details: `شراء: [${itemsNamesStr}]` });
+            }
+
+            auditLog.unshift({ type: 'بيع', details: `بيع بقيمة ${invoiceTotal.toLocaleString()} د.ع`, date: new Date().toLocaleString('ar-IQ') });
+            saveDataToCloud(); refreshAllUI();
+            if(saleType === 'cash' && confirm("تمت البيعة! هل تريد الطباعة؟")) printSaleReceipt(saleRecord);
+            currentInvoiceItems = []; invoiceTotal = 0; document.getElementById('posCustomerName').value = ''; renderInvoice(); switchView('sales-view');
+        }
+
+        function printSaleReceipt(sale) {
+            let area = document.getElementById('printable-area');
+            let itemsHtml = sale.items.map(i => `<tr><td>${i.name}</td><td>${i.price.toLocaleString()} د.ع</td></tr>`).join('');
+            let logoImg = customLogoUrl ? `<br/><img src="${customLogoUrl}" style="max-height: 80px; margin: 10px auto;" />` : '';
+            area.innerHTML = `<div style="text-align: center; font-family: Tajawal; padding: 20px; direction: rtl;"><h2>iStore - وصل مبيعات</h2><p>رقم الفاتورة: #${sale.id}</p><table style="width: 100%; text-align: right;"><tr><th>المادة</th><th>السعر</th></tr>${itemsHtml}</table><h3>الإجمالي: ${sale.total.toLocaleString()} د.ع</h3>${logoImg}</div>`;
+            window.print();
+        }
+
+        function returnSale(saleId) {
+            if(!confirm("إلغاء الفاتورة (راجع)؟")) return;
+            let sale = salesHistory.find(s => s.id === saleId);
+            if(!sale || sale.returned) return;
+            sale.returned = true; sale.profit = 0; sale.total = 0;
+            saveDataToCloud(); refreshAllUI(); alert("تم الراجع بنجاح");
+        }
+
+        function updateSalesTable() {
+            const tbody = document.getElementById('salesTableBody');
+            tbody.innerHTML = salesHistory.length === 0 ? '<tr><td colspan="7" class="p-4 text-center text-gray-400">لا توجد مبيعات</td></tr>' : '';
+            let totalSales = 0, grossProfit = 0, totalExpenses = 0;
+            expensesList.forEach(e => totalExpenses += e.amount);
+            salesHistory.forEach(s => {
+                if(!s.returned) { totalSales += s.total; grossProfit += (s.profit || 0); }
+                tbody.innerHTML += `<tr class="border-b bg-white ${s.returned ? 'bg-red-50 text-gray-400 line-through' : ''}"><td class="p-3 border font-bold">#${s.id}</td><td class="p-3 border">${s.type}</td><td class="p-3 border">${s.customer}</td><td class="p-3 border text-sm">${s.items.map(i=>i.name).join(', ')}</td><td class="p-3 border font-bold text-fuchsia-600">${s.total.toLocaleString()} د.ع</td><td class="p-3 border font-bold text-green-600">${(s.profit||0).toLocaleString()} د.ع</td><td class="p-3 border text-center">${!s.returned ? `<button onclick="returnSale(${s.id})" class="bg-red-100 text-red-600 px-2 py-1 rounded text-xs font-bold">راجع</button>` : 'ملغاة'}</td></tr>`;
+            });
+            document.getElementById('totalSalesDisplay').innerText = totalSales.toLocaleString() + ' د.ع';
+            document.getElementById('grossProfitDisplay').innerText = grossProfit.toLocaleString() + ' د.ع';
+            document.getElementById('netProfitDisplay').innerText = (grossProfit - totalExpenses).toLocaleString() + ' د.ع';
+        }
+
+        function addNewCustomerAccount() {
+            let name = document.getElementById('newCustAccountName').value.trim();
+            let amount = Number(document.getElementById('newCustAccountDebt').value);
+            if(!name) return alert("أدخل اسم الزبون!");
+            debtsList.push({ id: Math.floor(Math.random() * 1000000), customer: name, amount: isNaN(amount)?0:amount, date: new Date().toLocaleDateString('ar-IQ'), details: `دين سابق` });
+            document.getElementById('newCustAccountName').value = ''; document.getElementById('newCustAccountDebt').value = '';
+            saveDataToCloud(); refreshAllUI(); alert("تمت الإضافة");
+        }
+
+        function updateCustomersTable() {
+            const tbody = document.getElementById('customersTableBody');
+            tbody.innerHTML = ''; let customersMap = {};
+            debtsList.forEach(d => { if(!customersMap[d.customer]) customersMap[d.customer] = 0; customersMap[d.customer] += d.amount; });
+            let keys = Object.keys(customersMap);
+            if(keys.length === 0) { tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-gray-400">لا توجد حسابات</td></tr>'; return; }
+            keys.forEach(cust => {
+                tbody.innerHTML += `<tr class="border-b bg-white customer-row" data-name="${cust.toLowerCase()}"><td class="p-3 border font-bold">${cust}</td><td class="p-3 border text-blue-600 font-bold">${customersMap[cust].toLocaleString()} د.ع</td><td class="p-3 border text-center"><button onclick="openCustomerDetail('${cust}')" class="bg-blue-50 text-blue-600 px-3 py-1 rounded text-sm font-bold">فتح</button></td></tr>`;
+            });
+        }
+
+        function filterCustomersList() {
+            let input = document.getElementById('searchCustomerInput').value.toLowerCase();
+            let rows = document.getElementsByClassName('customer-row');
+            for(let i=0; i<rows.length; i++) rows[i].style.display = rows[i].getAttribute('data-name').includes(input) ? '' : 'none';
+        }
+
+        function openCustomerDetail(customerName) {
+            currentActiveCustomer = customerName;
+            document.getElementById('detailCustomerName').innerText = customerName;
+            document.getElementById('newCustomerNameInput').value = customerName;
+            const tbody = document.getElementById('customerInvoicesBody');
+            tbody.innerHTML = '';
+            debtsList.filter(d => d.customer === customerName).forEach(d => {
+                tbody.innerHTML += `<tr class="border-b"><td class="p-3 border font-bold">${d.details}</td><td class="p-3 border font-bold ${d.amount<0?'text-green-600':'text-blue-600'}">${d.amount.toLocaleString()} د.ع</td><td class="p-3 border text-sm text-gray-500">${d.date}</td></tr>`;
+            });
+            switchView('customer-detail-view');
+        }
+
+        function updateCustomerName() {
+            let newName = document.getElementById('newCustomerNameInput').value.trim();
+            if(!newName || newName === currentActiveCustomer) return;
+            debtsList.forEach(d => { if(d.customer === currentActiveCustomer) d.customer = newName; });
+            salesHistory.forEach(s => { if(s.customer === currentActiveCustomer) s.customer = newName; });
+            saveDataToCloud(); alert("تم التحديث"); openCustomerDetail(newName);
+        }
+
+        function quickPayDebt() {
+            let amount = Number(document.getElementById('quickPayAmount').value);
+            if(!amount || amount <= 0) return alert("أدخل مبلغاً صحيحاً!");
+            debtsList.push({ id: Math.floor(Math.random() * 1000000), customer: currentActiveCustomer, amount: -amount, date: new Date().toLocaleDateString('ar-IQ'), details: `قبض` });
+            saveDataToCloud(); document.getElementById('quickPayAmount').value = ''; alert("تم القبض"); openCustomerDetail(currentActiveCustomer);
+        }
+
+        function exemptCustomerDebt() {
+            let amount = Number(document.getElementById('exemptionAmount').value);
+            if(!amount || amount <= 0) return alert("أدخل المبلغ!");
+            debtsList.push({ id: Math.floor(Math.random() * 1000000), customer: currentActiveCustomer, amount: -amount, date: new Date().toLocaleDateString('ar-IQ'), details: `إعفاء` });
+            saveDataToCloud(); document.getElementById('exemptionAmount').value = ''; alert("تم الإعفاء"); openCustomerDetail(currentActiveCustomer);
+        }
+
+        function saveMyDebt(event) {
+            event.preventDefault();
+            myDebtsList.push({ id: Math.floor(Math.random() * 1000000), supplier: document.getElementById('myDebtSupplier').value.trim(), amount: Number(document.getElementById('myDebtAmount').value), date: new Date().toLocaleDateString('ar-IQ') });
+            document.getElementById('addMyDebtForm').reset(); saveDataToCloud(); updateMyDebtsTable();
+        }
+
+        function payMyDebt(index) {
+            if(confirm("تسديد وإزالة؟")) { myDebtsList.splice(index, 1); saveDataToCloud(); updateMyDebtsTable(); }
+        }
+
+        function updateMyDebtsTable() {
+            const tbody = document.getElementById('myDebtsTableBody');
+            tbody.innerHTML = ''; let total = 0;
+            if(myDebtsList.length === 0) tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-gray-400">لا توجد ديون</td></tr>';
+            myDebtsList.forEach((d, idx) => {
+                total += d.amount;
+                tbody.innerHTML += `<tr class="border-b bg-white"><td class="p-3 border font-bold">${d.supplier}</td><td class="p-3 border text-red-600 font-bold">${d.amount.toLocaleString()} د.ع</td><td class="p-3 border text-sm">${d.date}</td><td class="p-3 border text-center"><button onclick="payMyDebt(${idx})" class="bg-green-100 text-green-700 px-3 py-1 rounded text-xs font-bold">سداد</button></td></tr>`;
+            });
+            document.getElementById('totalMyDebtsDisplay').innerText = total.toLocaleString() + ' د.ع';
+        }
+
+        function issueVoucher(type) {
+            customLogoUrl = document.getElementById('logoUrlInput').value.trim();
+            let name = type === 'قبض' ? document.getElementById('vouchCust').value : document.getElementById('vouchSupp').value;
+            let amount = Number(document.getElementById(type === 'قبض' ? 'vouchPayAmount' : 'vouchRecAmount').value);
+            let text = document.getElementById(type === 'قبض' ? 'vouchPayText' : 'vouchRecText').value;
+            if(!name || !amount) return alert("أكمل الحقول!");
+            let area = document.getElementById('printable-area');
+            area.innerHTML = `<div style="text-align: center; font-family: Tajawal; padding: 25px; direction: rtl;"><h2>سند ${type}</h2><p>${text}</p><p><strong>الجهة:</strong> ${name}</p><h3>المبلغ: ${amount.toLocaleString()} د.ع</h3>${customLogoUrl?`<img src="${customLogoUrl}" style="max-height:80px;margin:10px auto;" />`:''}</div>`;
+            window.print();
+        }
+
+        function saveExpense(event) {
+            event.preventDefault();
+            expensesList.push({ desc: document.getElementById('expDesc').value, amount: Number(document.getElementById('expAmount').value), date: new Date().toLocaleDateString('ar-IQ') });
+            document.getElementById('addExpenseForm').reset(); saveDataToCloud(); refreshAllUI();
+        }
+
+        function updateExpensesTable() {
+            const tbody = document.getElementById('expensesTableBody');
+            tbody.innerHTML = expensesList.length === 0 ? '<tr><td colspan="3" class="p-4 text-center text-gray-400">لا توجد مصروفات</td></tr>' : '';
+            expensesList.forEach(exp => {
+                tbody.innerHTML += `<tr class="border-b bg-white"><td class="p-3 border font-bold">${exp.desc}</td><td class="p-3 border text-red-500 font-bold">${exp.amount.toLocaleString()} د.ع</td><td class="p-3 border text-sm">${exp.date}</td></tr>`;
+            });
+        }
+
+        function updateAuditTable() {
+            const tbody = document.getElementById('auditTableBody');
+            tbody.innerHTML = auditLog.length === 0 ? '<tr><td colspan="3" class="p-4 text-center text-gray-400">السجل نظيف</td></tr>' : '';
+            auditLog.forEach(log => {
+                tbody.innerHTML += `<tr class="border-b bg-white"><td class="p-3 border font-bold text-red-600">${log.type}</td><td class="p-3 border">${log.details}</td><td class="p-3 border text-sm">${log.date}</td></tr>`;
+            });
+        }
+    </script>
+</body>
+</html>
